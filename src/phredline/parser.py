@@ -1,6 +1,10 @@
 FILE_PATH = "data\ERR1410268.fastq\ERR1410268.fastq"
 CHUNK_SIZE = 16
 
+class ParseError(Exception):
+    """Error for when FATQ format is malformed"""
+    pass
+
 def read_chunks(file_path, chunk_size):
     with open(file_path, "rb") as stream:
         while True:
@@ -29,14 +33,32 @@ def read_lines(chunk_stream):
     if len(tail) > 0:
         yield tail
 
+def parse_records(line_stream):
+    record = []
+
+    for line in line_stream:
+        record.append(line)
+
+        if len(record) == 4:
+            if not record[0].startswith(b"@") or not record[2].startswith(b"+"):
+                raise ParseError("Error when parsing FASTQ. Malformed line")
+
+            yield (record[0], record[1], record[2], record[3])
+
+            record = []
+
 if __name__ == "__main__":
     print("--- Chunk Reader ---")
 
     chunks = read_chunks(FILE_PATH, CHUNK_SIZE)
     lines = read_lines(chunks)
+    records = parse_records(lines)
 
-    for i, chunk in enumerate(lines):
-        print(f"Chunk {i}: {chunk} (Length: {len(chunk)})")
+    for i, rec in enumerate(records):
+        header, seq, plus, qual = rec
+        print(f"Record {i}:")
+        print(f"  Header: {header}")
+        print(f"  Seq:    {seq}")
 
         if i >= 100:
            print("Stopping test early")
