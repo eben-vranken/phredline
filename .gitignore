@@ -2,7 +2,7 @@
 venv/
 ENV/
 
-*egg.info/
+*.egg-info/
 egg-info/
 dist/
 build/
