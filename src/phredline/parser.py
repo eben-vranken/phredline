@@ -1,6 +1,6 @@
 import gzip
+import sys
 
-FILE_PATH = "data\ERR1410268.fastq.gz"
 CHUNK_SIZE = 16
 
 class ParseError(Exception):
@@ -8,23 +8,32 @@ class ParseError(Exception):
     pass
 
 def read_chunks(file_path, chunk_size):
-    with open(file_path, "rb") as f:
-        magic = f.read(2)
+    if file_path is None or file_path == "-":
+        stream = sys.stdin.buffer
 
-        f.seek(0)
-
-        if magic == b"\x1f\x8b":
-            stream = gzip.open(f, "rb")
-        else:
-            stream = f
-        
         while True:
             bchunk = stream.read(chunk_size)
-            
             if bchunk == b"":
                 break
+            yield bchunk
+    else:
+        with open(file_path, "rb") as f:
+            magic = f.read(2)
+
+            f.seek(0)
+
+            if magic == b"\x1f\x8b":
+                stream = gzip.open(f, "rb")
             else:
-                yield bchunk
+                stream = f
+            
+            while True:
+                bchunk = stream.read(chunk_size)
+                
+                if bchunk == b"":
+                    break
+                else:
+                    yield bchunk
 
 def read_lines(chunk_stream):
     tail = b""
@@ -61,7 +70,9 @@ def parse_records(line_stream):
 if __name__ == "__main__":
     print("--- Chunk Reader ---")
 
-    chunks = read_chunks(FILE_PATH, CHUNK_SIZE)
+    file_input = sys.argv[1] if len(sys.argv) > 1 else None
+
+    chunks = read_chunks(file_input, CHUNK_SIZE)
     lines = read_lines(chunks)
     records = parse_records(lines)
 
