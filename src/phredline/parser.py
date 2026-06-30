@@ -72,21 +72,24 @@ def parse_records(line_stream):
 
             record = []
 
+
 def decode_phred(quality_string):
     quality_array = []
 
     for c in quality_string:
-        quality_array.append(c-33)
+        quality_array.append(c - 33)
 
     return quality_array
+
 
 def decode_error_probability(q_array):
     error_probability_array = []
 
     for q in q_array:
-        error_probability_array.append(10**(-q/10))
+        error_probability_array.append(10 ** (-q / 10))
 
     return error_probability_array
+
 
 if __name__ == "__main__":
     print("--- Chunk Reader ---")
@@ -107,18 +110,15 @@ if __name__ == "__main__":
         phred_qualities = decode_phred(qual)
 
         print(f"  Phred: ", end=" ")
-        for phred in phred_qualities: 
+        for phred in phred_qualities:
             print(f"{phred}", end="-")
 
         error_probabilities = decode_error_probability(phred_qualities)
 
         print(f"\n  Error probability: ", end=" ")
-        for prob in error_probabilities: 
+        for prob in error_probabilities:
             print(f"{prob}", end="-")
-
 
         if i >= 0:
             print("\nStopping test early")
             break
-
-            
