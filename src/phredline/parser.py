@@ -3,9 +3,12 @@ import sys
 
 CHUNK_SIZE = 16
 
+
 class ParseError(Exception):
     """Error for when FATQ format is malformed"""
+
     pass
+
 
 def read_chunks(file_path, chunk_size):
     if file_path is None or file_path == "-":
@@ -26,14 +29,15 @@ def read_chunks(file_path, chunk_size):
                 stream = gzip.open(f, "rb")
             else:
                 stream = f
-            
+
             while True:
                 bchunk = stream.read(chunk_size)
-                
+
                 if bchunk == b"":
                     break
                 else:
                     yield bchunk
+
 
 def read_lines(chunk_stream):
     tail = b""
@@ -49,9 +53,10 @@ def read_lines(chunk_stream):
         tail = chunk_split[-1]
 
         pass
- 
+
     if len(tail) > 0:
         yield tail
+
 
 def parse_records(line_stream):
     record = []
@@ -66,6 +71,7 @@ def parse_records(line_stream):
             yield (record[0], record[1], record[2], record[3])
 
             record = []
+
 
 if __name__ == "__main__":
     print("--- Chunk Reader ---")
@@ -83,5 +89,5 @@ if __name__ == "__main__":
         print(f"  Seq:    {seq}")
 
         if i >= 100:
-           print("Stopping test early")
-           break
+            print("Stopping test early")
+            break
