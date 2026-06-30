@@ -119,26 +119,3 @@ def compute_summary(aggregator):
         summary["per_position_stats"].append(position_data)
 
     return summary
-
-
-if __name__ == "__main__":
-    RECORD_CAP = -1
-
-    print("--- Chunk Reader ---")
-
-    file_input = sys.argv[1] if len(sys.argv) > 1 else None
-
-    aggregator = FastqAggregator(max_read_len=300)
-    chunks = read_chunks(file_input, CHUNK_SIZE)
-    lines = read_lines(chunks)
-    records = parse_records(lines)
-
-    for i, (header, seq, plus, qual) in enumerate(records):
-        if RECORD_CAP >= 0 and i >= RECORD_CAP:
-            break
-
-        q_scores = decode_phred(qual)
-        aggregator.add_record(seq, q_scores)
-
-    final_stats = compute_summary(aggregator)
-    print(final_stats)
