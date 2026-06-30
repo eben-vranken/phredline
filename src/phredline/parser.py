@@ -1,6 +1,8 @@
 import gzip
 import sys
 
+from phredline.aggregator import FastqAggregator
+
 CHUNK_SIZE = 16
 
 
@@ -91,34 +93,52 @@ def decode_error_probability(q_array):
     return error_probability_array
 
 
+def compute_summary(aggregator):
+    """Computes final stats from the Aggregator's state"""
+    summary = {
+        "per_position_stats": [],
+        "overall_gc_ratio": (aggregator.total_gc / aggregator.total_length)
+        if aggregator.total_length > 0
+        else 0,
+        "total_reads": aggregator.read_counts[0],
+    }
+
+    for i in range(aggregator.max_read_len):
+        count = aggregator.read_counts[i]
+        if count == 0:
+            break
+
+        position_data = {
+            "position": i,
+            "mean_quality": aggregator.qual_sums[i] / count,
+            "frequencies": {
+                base: (aggregator.base_counts[base][i] / count)
+                for base in ["A", "T", "C", "G", "N"]
+            },
+        }
+        summary["per_position_stats"].append(position_data)
+
+    return summary
+
+
 if __name__ == "__main__":
+    RECORD_CAP = -1
+
     print("--- Chunk Reader ---")
 
     file_input = sys.argv[1] if len(sys.argv) > 1 else None
 
+    aggregator = FastqAggregator(max_read_len=300)
     chunks = read_chunks(file_input, CHUNK_SIZE)
     lines = read_lines(chunks)
     records = parse_records(lines)
 
-    for i, rec in enumerate(records):
-        header, seq, plus, qual = rec
-        print(f"Record {i}:")
-        print(f"  Header: {header}")
-        print(f"  Seq:    {seq}")
-        print(f"  Qual:   {qual}")
-
-        phred_qualities = decode_phred(qual)
-
-        print(f"  Phred: ", end=" ")
-        for phred in phred_qualities:
-            print(f"{phred}", end="-")
-
-        error_probabilities = decode_error_probability(phred_qualities)
-
-        print(f"\n  Error probability: ", end=" ")
-        for prob in error_probabilities:
-            print(f"{prob}", end="-")
-
-        if i >= 0:
-            print("\nStopping test early")
+    for i, (header, seq, plus, qual) in enumerate(records):
+        if RECORD_CAP >= 0 and i >= RECORD_CAP:
             break
+
+        q_scores = decode_phred(qual)
+        aggregator.add_record(seq, q_scores)
+
+    final_stats = compute_summary(aggregator)
+    print(final_stats)

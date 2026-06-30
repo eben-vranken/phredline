@@ -19,7 +19,8 @@ class FastqAggregator:
 
     def add_record(self, sequence, qualities):
         """Updates internal arrays in-place using the record data."""
-        seq_len = len(sequence)
+        seq_len = min(len(sequence), self.max_read_len)
+
         for i in range(seq_len):
             base = chr(sequence[i]).upper()
             if base in self.base_counts:
