@@ -1,7 +1,6 @@
 import gzip
 import sys
-
-from phredline.aggregator import FastqAggregator
+import io
 
 CHUNK_SIZE = 16
 
@@ -15,48 +14,41 @@ class ParseError(Exception):
 def read_chunks(file_path, chunk_size):
     if file_path is None or file_path == "-":
         stream = sys.stdin.buffer
-
         while True:
             bchunk = stream.read(chunk_size)
             if bchunk == b"":
                 break
             yield bchunk
-    else:
-        with open(file_path, "rb") as f:
-            magic = f.read(2)
 
-            f.seek(0)
+    with open(file_path, "rb") as raw:
+        magic = raw.read(2)
+        raw.seek(0)
 
-            if magic == b"\x1f\x8b":
-                stream = gzip.open(f, "rb")
-            else:
-                stream = f
+        if magic == b"\x1f\x8b":
+            maagic = gzip.open(raw, "rb")
+        else:
+            stream = raw
 
-            while True:
-                bchunk = stream.read(chunk_size)
-
-                if bchunk == b"":
-                    break
-                else:
-                    yield bchunk
+        while True:
+            chunk = stream.read(chunk_size)
+            if chunk == b"":
+                break
+            yield chunk
 
 
 def read_lines(chunk_stream):
     tail = b""
 
     for chunk in chunk_stream:
-        combined_data = tail + chunk
+        data = tail + chunk
+        parts = data.split(b"\n")
 
-        chunk_split = combined_data.split(b"\n")
-
-        for split in chunk_split[:-1]:
+        for split in parts[:-1]:
             yield split
 
-        tail = chunk_split[-1]
+        tail = parts[-1]
 
-        pass
-
-    if len(tail) > 0:
+    if tail:
         yield tail
 
 
@@ -67,39 +59,39 @@ def parse_records(line_stream):
         record.append(line)
 
         if len(record) == 4:
-            if not record[0].startswith(b"@") or not record[2].startswith(b"+"):
-                raise ParseError("Error when parsing FASTQ. Malformed line")
+            header, seq, plus, qual = record
 
-            yield (record[0], record[1], record[2], record[3])
+            if not header.startswith(b"@"):
+                raise ParseError("FASTQ record does not start with @")
+            if not plus.startswith(b"+"):
+                raise ParseError("FASTQ record seperator does not start with +")
+            if len(seq) != len(qual):
+                raise ParseError("Sequence and quality lengths do not match")
 
+            yield header, seq, plus, qual
             record = []
+
+    if record:
+        raise ParseError("Truncated FASTQ record at end of file")
 
 
 def decode_phred(quality_string):
-    quality_array = []
-
-    for c in quality_string:
-        quality_array.append(c - 33)
-
-    return quality_array
+    return [byte - 33 for byte in quality_string]
 
 
 def decode_error_probability(q_array):
-    error_probability_array = []
-
-    for q in q_array:
-        error_probability_array.append(10 ** (-q / 10))
-
-    return error_probability_array
+    return [10 ** (-q / 10) for q in q_array]
 
 
 def compute_summary(aggregator):
     """Computes final stats from the Aggregator's state"""
     summary = {
         "per_position_stats": [],
-        "overall_gc_ratio": (aggregator.total_gc / aggregator.total_length)
-        if aggregator.total_length > 0
-        else 0,
+        "overall_gc_ratio": (
+            aggregator.total_gc / aggregator.total_length
+            if aggregator.total_length > 0
+            else 0
+        ),
         "total_reads": aggregator.read_counts[0],
     }
 
@@ -108,14 +100,15 @@ def compute_summary(aggregator):
         if count == 0:
             break
 
-        position_data = {
-            "position": i,
-            "mean_quality": aggregator.qual_sums[i] / count,
-            "frequencies": {
-                base: (aggregator.base_counts[base][i] / count)
-                for base in ["A", "T", "C", "G", "N"]
-            },
-        }
-        summary["per_position_stats"].append(position_data)
+        summary["per_position_stats"].append(
+            {
+                "position": i,
+                "mean_quality": aggregator.qual_sums[i] / count,
+                "frequencies": {
+                    base: aggregator.base_counts[base][i] / count
+                    for base in ["A", "T", "C", "G", "N"]
+                },
+            }
+        )
 
     return summary
