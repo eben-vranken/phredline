@@ -19,8 +19,8 @@ def read_chunks(file_path, chunk_size):
             if bchunk == b"":
                 break
             yield bchunk
-        return 
-    
+        return
+
     with open(file_path, "rb") as raw:
         magic = raw.read(2)
         raw.seek(0)

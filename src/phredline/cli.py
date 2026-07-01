@@ -13,6 +13,24 @@ from phredline.aggregator import FastqAggregator
 from pathlib import Path
 
 
+def passes_filters(seq, q_scores, min_qual, min_length, max_n_fraction):
+    if len(seq) < min_length:
+        return False
+
+    if q_scores:
+        avg_qual = sum(q_scores) / len(q_scores)
+        if avg_qual < min_qual:
+            return False
+
+    if max_n_fraction is not None:
+        n_count = sum(1 for base in seq if chr(base).upper() == "N")
+        n_fraction = n_count / len(seq) if len(seq) > 0 else 1.0
+        if n_fraction > max_n_fraction:
+            return False
+
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Memory-bounded FASTQ quality control and filtering."
@@ -28,9 +46,31 @@ def main():
     )
     parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
 
+    parser.add_argument(
+        "--min-qual", type=float, default=0, help="Minimum average Phred across read"
+    )
+    parser.add_argument(
+        "--min-length",
+        type=int,
+        default=0,
+        help="Minimum read length after trimming, or raw length if we are not trimming",
+    )
+    parser.add_argument(
+        "--max-n-fraction", type=float, help="Maximum fraction of N bases allowed"
+    )
+    parser.add_argument(
+        "--filtered-fastq",
+        type=str,
+        help="If set, write passing reads there; if omitted, still compute QC and just drop failing reads from the stream",
+    )
+
     args = parser.parse_args()
 
+    filtered_handle = None
     try:
+        if args.filtered_fastq:
+            filtered_handle = open(args.filtered_fastq, "wb")
+
         aggregator = FastqAggregator(max_read_len=args.max_read_len)
 
         chunks = read_chunks(args.input, CHUNK_SIZE)
@@ -40,6 +80,20 @@ def main():
         for header, seq, plus, qual in records:
             q_scores = decode_phred(qual)
             aggregator.add_record(seq, q_scores)
+
+            passes = passes_filters(
+                seq,
+                q_scores,
+                args.min_qual,
+                args.min_length,
+                args.max_n_fraction,
+            )
+
+            if filtered_handle is not None and passes:
+                filtered_handle.write(header + b"\n")
+                filtered_handle.write(seq + b"\n")
+                filtered_handle.write(plus + b"\n")
+                filtered_handle.write(qual + b"\n")
 
         summary = compute_summary(aggregator)
 
@@ -57,6 +111,10 @@ def main():
     except Exception as e:
         print(f"Phredline: Error {e}", file=sys.stderr)
         sys.exit(1)
+
+    finally:
+        if filtered_handle is not None:
+            filtered_handle.close()
 
 
 def format_for_multiqc(summary, input_path):
