@@ -25,7 +25,7 @@ def read_chunks(file_path, chunk_size):
         raw.seek(0)
 
         if magic == b"\x1f\x8b":
-            maagic = gzip.open(raw, "rb")
+            stream = gzip.open(raw, "rb")
         else:
             stream = raw
 
