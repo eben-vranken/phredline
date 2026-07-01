@@ -12,13 +12,15 @@ class FastqAggregator:
             "G": array.array("I", [0] * max_read_len),
             "N": array.array("I", [0] * max_read_len),
         }
-        self.qual_sums = array.array("d", [0.0] * max_read_len)
+        self.error_prob_sums = array.array("d", [0.0] * max_read_len)
         self.read_counts = array.array("I", [0] * max_read_len)
         self.total_gc = 0
         self.total_length = 0
+        self.total_reads = 0
 
-    def add_record(self, sequence, qualities):
+    def add_record(self, sequence, error_probabilities):
         """Updates internal arrays in-place using the record data."""
+        self.total_reads += 1
         seq_len = min(len(sequence), self.max_read_len)
 
         for i in range(seq_len):
@@ -26,7 +28,7 @@ class FastqAggregator:
             if base in self.base_counts:
                 self.base_counts[base][i] += 1
 
-            self.qual_sums[i] += qualities[i]
+            self.error_prob_sums[i] += error_probabilities[i]
             self.read_counts[i] += 1
 
             if base in ("G", "C"):

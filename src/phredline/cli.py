@@ -6,6 +6,7 @@ from phredline.parser import (
     read_lines,
     parse_records,
     decode_phred,
+    decode_error_probability,
     compute_summary,
     CHUNK_SIZE,
 )
@@ -79,7 +80,9 @@ def main():
 
         for header, seq, plus, qual in records:
             q_scores = decode_phred(qual)
-            aggregator.add_record(seq, q_scores)
+            error_probs = decode_error_probability(q_scores)
+
+            aggregator.add_record(seq, error_probs)
 
             passes = passes_filters(
                 seq,

@@ -1,6 +1,6 @@
 import gzip
 import sys
-import io
+import math
 
 CHUNK_SIZE = 16
 
@@ -93,7 +93,7 @@ def compute_summary(aggregator):
             if aggregator.total_length > 0
             else 0
         ),
-        "total_reads": aggregator.read_counts[0],
+        "total_reads": aggregator.total_reads,
     }
 
     for i in range(aggregator.max_read_len):
@@ -101,10 +101,15 @@ def compute_summary(aggregator):
         if count == 0:
             break
 
+        mean_error_prob = aggregator.error_prob_sums[i] / count
+        mean_quality = (
+            -10 * math.log10(mean_error_prob) if mean_error_prob > 0 else float("inf")
+        )
+
         summary["per_position_stats"].append(
             {
                 "position": i,
-                "mean_quality": aggregator.qual_sums[i] / count,
+                "mean_quality": mean_quality,
                 "frequencies": {
                     base: aggregator.base_counts[base][i] / count
                     for base in ["A", "T", "C", "G", "N"]
