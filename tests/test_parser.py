@@ -11,11 +11,10 @@ from phredline.parser import (
     compute_summary,
     decode_error_probability,
     decode_phred,
+    parse_records,
     read_chunks,
     read_lines,
-    parse_records,
 )
-
 
 DNA_BASES = [b"A", b"C", b"G", b"T", b"N"]
 

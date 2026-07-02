@@ -1,7 +1,7 @@
-import gzip
-import sys
-import math
 import array
+import gzip
+import math
+import sys
 from collections.abc import Iterator
 
 CHUNK_SIZE = 16 * 1024

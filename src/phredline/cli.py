@@ -1,16 +1,17 @@
 import argparse
-import sys
 import json
+import sys
+from pathlib import Path
+
+from phredline.aggregator import FastqAggregator
 from phredline.parser import (
+    CHUNK_SIZE,
+    ScratchBuffers,
+    compute_summary,
+    parse_records,
     read_chunks,
     read_lines,
-    parse_records,
-    compute_summary,
-    ScratchBuffers,
-    CHUNK_SIZE,
 )
-from phredline.aggregator import FastqAggregator
-from pathlib import Path
 
 
 def passes_filters(
@@ -20,7 +21,7 @@ def passes_filters(
     min_length: int,
     max_n_fraction: float | None,
 ) -> bool:
-    """Return whether a read satisfies the current length, quality, and N-content filters.
+    """Return whether a read satisfies the length, quality, and N-content filters.
 
     The helper is intentionally lightweight so the CLI can evaluate each record as it
     streams through the parser without allocating additional intermediate structures.
@@ -83,7 +84,10 @@ def main() -> None:
     parser.add_argument(
         "--filtered-fastq",
         type=str,
-        help="If set, write passing reads there; if omitted, still compute QC and just drop failing reads from the stream",
+        help=(
+            "If set, write passing reads there; otherwise compute QC and drop "
+            "failing reads from the stream."
+        ),
     )
 
     args = parser.parse_args()
@@ -152,7 +156,7 @@ def main() -> None:
 def format_for_multiqc(
     summary: dict[str, object], input_path: str
 ) -> list[dict[str, object]]:
-    """Convert summary statistics into the MultiQC section layout expected by the report.
+    """Convert summary statistics into the MultiQC section layout.
 
     The output groups per-position quality values and aggregate sample metrics into the
     structure MultiQC expects, using the input filename stem as the sample identifier.
