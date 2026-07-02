@@ -107,3 +107,9 @@ def test_main_reports_missing_input_file(tmp_path, monkeypatch, capsys):
 
     assert excinfo.value.code == 1
     assert "Input file not found" in capsys.readouterr().err
+
+
+def test_sample_name_from_path_strips_fastq_suffixes():
+    assert cli.sample_name_from_path("/data/forest_soil.fastq.gz") == "forest_soil"
+    assert cli.sample_name_from_path("/data/forest_soil.fq.gz") == "forest_soil"
+    assert cli.sample_name_from_path("/data/forest_soil.fastq") == "forest_soil"

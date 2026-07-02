@@ -14,6 +14,27 @@ from phredline.parser import (
 )
 
 
+def sample_name_from_path(input_path: str) -> str:
+    """Return a clean sample name derived from a FASTQ path.
+
+    The helper strips common compression and FASTQ suffixes so inputs like
+    `sample.fastq.gz` and `sample.fq.gz` both normalize to `sample`.
+    """
+    sample_name = Path(input_path).name
+
+    for suffix in (".gz", ".gzip"):
+        if sample_name.endswith(suffix):
+            sample_name = sample_name[: -len(suffix)]
+            break
+
+    for suffix in (".fastq", ".fq"):
+        if sample_name.endswith(suffix):
+            sample_name = sample_name[: -len(suffix)]
+            break
+
+    return sample_name
+
+
 def passes_filters(
     seq: bytes,
     q_scores: list[int] | memoryview | tuple[int, ...],
@@ -131,7 +152,7 @@ def main() -> None:
         summary = compute_summary(aggregator)
 
         report_sections = format_for_multiqc(summary, args.input)
-        sample_name = Path(args.input).stem
+        sample_name = sample_name_from_path(args.input)
 
         for section in report_sections:
             section_path = output_dir / f"{sample_name}_{section['id']}_mqc.json"
@@ -161,7 +182,7 @@ def format_for_multiqc(
     The output groups per-position quality values and aggregate sample metrics into the
     structure MultiQC expects, using the input filename stem as the sample identifier.
     """
-    sample_name = Path(input_path).stem
+    sample_name = sample_name_from_path(input_path)
 
     quality_data = {sample_name: {}}
     for stat in summary["per_position_stats"]:
