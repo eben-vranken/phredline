@@ -77,12 +77,12 @@ def parse_records(line_stream):
 
 def decode_phred(quality_string: bytes) -> array.array:
     out = array.array("b", bytes(len(quality_string)))
-    decode_phred_into(quality_string, out)
+    decode_phred_into(quality_string, len(quality_string), out)
     return out
 
 def decode_phred_into(q_buffer, count: int, out_buffer: array.array) -> int:
     for i in range(count):
-        out_buffer[i] = 10 ** (-q_buffer[i] / 10)
+        out_buffer[i] = q_buffer[i] - 33
     return count
 
 def decode_error_probability(q_array) -> array.array:
@@ -115,7 +115,7 @@ class ScratchBuffers:
     def decode(self, quality_string: bytes):
         n = len(quality_string)
         self._ensure_capacity(n)
-        decode_phred_into(quality_string, self._q_scores)
+        decode_phred_into(quality_string, n, self._q_scores)
         decode_error_probability_into(self._q_scores, n, self._error_probs)
         return memoryview(self._q_scores)[:n], memoryview(self._error_probs)[:n], n
 

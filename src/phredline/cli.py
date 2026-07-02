@@ -5,9 +5,8 @@ from phredline.parser import (
     read_chunks,
     read_lines,
     parse_records,
-    decode_phred,
-    decode_error_probability,
     compute_summary,
+    ScratchBuffers,
     CHUNK_SIZE,
 )
 from phredline.aggregator import FastqAggregator
@@ -68,6 +67,10 @@ def main():
     args = parser.parse_args()
 
     filtered_handle = None
+
+    aggregator = FastqAggregator(max_read_len=args.max_read_len)
+    scratch = ScratchBuffers(initial_capacity=args.max_read_len)
+
     try:
         if args.filtered_fastq:
             filtered_handle = open(args.filtered_fastq, "wb")
@@ -79,9 +82,7 @@ def main():
         records = parse_records(lines)
 
         for header, seq, plus, qual in records:
-            q_scores = decode_phred(qual)
-            error_probs = decode_error_probability(q_scores)
-
+            q_scores, error_probs, _ = scratch.decode(qual)
             aggregator.add_record(seq, error_probs)
 
             passes = passes_filters(
