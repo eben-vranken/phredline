@@ -2,7 +2,13 @@ import array
 
 
 class FastqAggregator:
-    def __init__(self, max_read_len=300):
+    def __init__(self, max_read_len: int = 300) -> None:
+        """Initialize per-position counters and running totals for streamed FASTQ reads.
+
+        The aggregator keeps fixed-width arrays for base counts, error probability sums,
+        and read coverage so it can accumulate statistics in constant memory relative to
+        the configured maximum read length.
+        """
         self.max_read_len = max_read_len
 
         self.base_counts = {
@@ -18,8 +24,13 @@ class FastqAggregator:
         self.total_length = 0
         self.total_reads = 0
 
-    def add_record(self, sequence, error_probabilities):
-        """Updates internal arrays in-place using the record data."""
+    def add_record(self, sequence: bytes, error_probabilities) -> None:
+        """Update the running statistics in place for a single FASTQ record.
+
+        Bases are counted per position, error probabilities are accumulated alongside
+        coverage, and the overall GC and length totals are advanced using the sequence
+        prefix that fits within the configured maximum read length.
+        """
         self.total_reads += 1
         seq_len = min(len(sequence), self.max_read_len)
 

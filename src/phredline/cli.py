@@ -13,7 +13,20 @@ from phredline.aggregator import FastqAggregator
 from pathlib import Path
 
 
-def passes_filters(seq, q_scores, min_qual, min_length, max_n_fraction):
+def passes_filters(
+    seq: bytes,
+    q_scores: list[int] | memoryview | tuple[int, ...],
+    min_qual: float,
+    min_length: int,
+    max_n_fraction: float | None,
+) -> bool:
+    """Return whether a read satisfies the current length, quality, and N-content filters.
+
+    The helper is intentionally lightweight so the CLI can evaluate each record as it
+    streams through the parser without allocating additional intermediate structures.
+    It rejects reads that are too short, fall below the minimum average Phred score,
+    or exceed the configured fraction of ambiguous `N` bases.
+    """
     if len(seq) < min_length:
         return False
 
@@ -31,13 +44,22 @@ def passes_filters(seq, q_scores, min_qual, min_length, max_n_fraction):
     return True
 
 
-def main():
+def main() -> None:
+    """Parse command-line arguments, run FASTQ QC, and write MultiQC section files.
+
+    The CLI streams input records through the parser and aggregator, optionally writes
+    passing reads to a filtered FASTQ file, and finally emits a directory of
+    `_mqc.json` files that MultiQC can discover directly from a directory scan.
+    """
     parser = argparse.ArgumentParser(
         description="Memory-bounded FASTQ quality control and filtering."
     )
 
     parser.add_argument("input", help="Input FASTQ file (use '-' to read from stdin)")
-    parser.add_argument("output", help="Output JSON report file")
+    parser.add_argument(
+        "output",
+        help="Output directory for MultiQC *_mqc.json section files",
+    )
     parser.add_argument(
         "--max-read-len",
         type=int,
@@ -70,8 +92,11 @@ def main():
 
     aggregator = FastqAggregator(max_read_len=args.max_read_len)
     scratch = ScratchBuffers(initial_capacity=args.max_read_len)
+    output_dir = Path(args.output)
 
     try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+
         if args.filtered_fastq:
             filtered_handle = open(args.filtered_fastq, "wb")
 
@@ -101,13 +126,16 @@ def main():
 
         summary = compute_summary(aggregator)
 
-        report = format_for_multiqc(summary, args.input)
+        report_sections = format_for_multiqc(summary, args.input)
+        sample_name = Path(args.input).stem
 
-        with open(args.output, "w") as f:
-            json.dump({"multiqc_data": report}, f, indent=2)
+        for section in report_sections:
+            section_path = output_dir / f"{sample_name}_{section['id']}_mqc.json"
+            with open(section_path, "w") as f:
+                json.dump(section, f, indent=2)
 
         if args.verbose:
-            print(f"Report written to {args.output}")
+            print(f"Report written to {output_dir}")
 
     except FileNotFoundError as e:
         print(f"Phredline: Input file not found: {e}", file=sys.stderr)
@@ -121,8 +149,12 @@ def main():
             filtered_handle.close()
 
 
-def format_for_multiqc(summary, input_path):
-    """Convert summary stats to MultiQC-compatible JSON format"""
+def format_for_multiqc(summary: dict[str, object], input_path: str) -> list[dict[str, object]]:
+    """Convert summary statistics into the MultiQC section layout expected by the report.
+
+    The output groups per-position quality values and aggregate sample metrics into the
+    structure MultiQC expects, using the input filename stem as the sample identifier.
+    """
     sample_name = Path(input_path).stem
 
     quality_data = {sample_name: {}}

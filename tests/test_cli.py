@@ -11,9 +11,11 @@ def test_passes_filters_helper():
     assert cli.passes_filters(b"ACGT", [40, 40, 40, 40], 30, 5, None) is False
 
 
-def test_main_writes_only_passing_reads_to_filtered_fastq(tmp_path, monkeypatch):
+def test_main_writes_multiqc_section_files_in_output_directory(
+    tmp_path, monkeypatch
+):
     input_path = tmp_path / "input.fastq"
-    output_path = tmp_path / "report.json"
+    output_dir = tmp_path / "report"
     filtered_path = tmp_path / "filtered.fastq"
 
     records = [
@@ -31,7 +33,7 @@ def test_main_writes_only_passing_reads_to_filtered_fastq(tmp_path, monkeypatch)
         [
             "phredline",
             str(input_path),
-            str(output_path),
+            str(output_dir),
             "--min-qual",
             "30",
             "--max-n-fraction",
@@ -43,10 +45,20 @@ def test_main_writes_only_passing_reads_to_filtered_fastq(tmp_path, monkeypatch)
 
     cli.main()
 
-    report = json.loads(output_path.read_text())
+    assert output_dir.is_dir()
+
+    report_files = sorted(output_dir.glob("*_mqc.json"))
+    assert len(report_files) == 2
+
+    parsed_sections = [json.loads(path.read_text()) for path in report_files]
+    assert {section["id"] for section in parsed_sections} == {
+        "per_position_quality",
+        "fastq_summary",
+    }
+
     summary_section = next(
         section
-        for section in report["multiqc_data"]
+        for section in parsed_sections
         if section["id"] == "fastq_summary"
     )
     assert summary_section["data"][input_path.stem]["total_reads"] == 2

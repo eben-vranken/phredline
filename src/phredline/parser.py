@@ -2,6 +2,7 @@ import gzip
 import sys
 import math
 import array
+from collections.abc import Iterator
 CHUNK_SIZE = 16 * 1024
 
 
@@ -11,7 +12,13 @@ class ParseError(Exception):
     pass
 
 
-def read_chunks(file_path, chunk_size):
+def read_chunks(file_path: str | None, chunk_size: int) -> Iterator[bytes]:
+    """Yield raw FASTQ input bytes from a file path or stdin in fixed-size chunks.
+
+    The stream is read in binary mode, with gzip files detected by their magic bytes,
+    so downstream code can process large inputs without loading them into memory.
+    Passing `None` or `-` reads from standard input instead of opening a file.
+    """
     if file_path is None or file_path == "-":
         stream = sys.stdin.buffer
         while True:
@@ -37,7 +44,12 @@ def read_chunks(file_path, chunk_size):
             yield chunk
 
 
-def read_lines(chunk_stream):
+def read_lines(chunk_stream: Iterator[bytes]) -> Iterator[bytes]:
+    """Reassemble newline-delimited byte lines from an arbitrary byte-chunk stream.
+
+    Chunks may split lines anywhere, so this helper preserves a trailing partial line
+    between iterations and yields complete FASTQ lines as soon as they are available.
+    """
     tail = b""
 
     for chunk in chunk_stream:
@@ -53,7 +65,13 @@ def read_lines(chunk_stream):
         yield tail
 
 
-def parse_records(line_stream):
+def parse_records(line_stream: Iterator[bytes]) -> Iterator[tuple[bytes, bytes, bytes, bytes]]:
+    """Group FASTQ lines into validated four-line records and yield them as tuples.
+
+    Each record is checked for the expected `@` header, `+` separator, and matching
+    sequence and quality lengths, raising `ParseError` when the input is malformed or
+    ends with an incomplete record.
+    """
     record = []
 
     for line in line_stream:
