@@ -2,7 +2,7 @@ import gzip
 import sys
 import math
 
-CHUNK_SIZE = 16
+CHUNK_SIZE = 16 * 1024
 
 
 class ParseError(Exception):
