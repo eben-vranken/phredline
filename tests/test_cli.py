@@ -1,6 +1,8 @@
 import json
 import sys
 
+import pytest
+
 from phredline import cli
 
 
@@ -38,6 +40,7 @@ def test_main_writes_multiqc_section_files_in_output_directory(
             "30",
             "--max-n-fraction",
             "0.1",
+            "--verbose",
             "--filtered-fastq",
             str(filtered_path),
         ],
@@ -65,3 +68,42 @@ def test_main_writes_multiqc_section_files_in_output_directory(
 
     filtered = filtered_path.read_text().splitlines()
     assert filtered == ["@pass", "ACGT", "+", "IIII"]
+
+
+def test_main_reports_unexpected_error(tmp_path, monkeypatch, capsys):
+    input_path = tmp_path / "input.fastq"
+    output_dir = tmp_path / "report"
+
+    monkeypatch.setattr(cli, "read_chunks", lambda *args, **kwargs: [b""])
+    monkeypatch.setattr(cli, "read_lines", lambda chunks: [])
+    monkeypatch.setattr(cli, "parse_records", lambda lines: iter([]))
+    monkeypatch.setattr(cli, "compute_summary", lambda aggregator: (_ for _ in ()).throw(RuntimeError("boom")))
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["phredline", str(input_path), str(output_dir)],
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        cli.main()
+
+    assert excinfo.value.code == 1
+    assert "Error boom" in capsys.readouterr().err
+
+
+def test_main_reports_missing_input_file(tmp_path, monkeypatch, capsys):
+    input_path = tmp_path / "missing.fastq"
+    output_dir = tmp_path / "report"
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["phredline", str(input_path), str(output_dir)],
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        cli.main()
+
+    assert excinfo.value.code == 1
+    assert "Input file not found" in capsys.readouterr().err

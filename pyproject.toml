@@ -24,6 +24,7 @@ dev = [
     "ruff",
     "pytest",
     "hypothesis",
+    "pytest-cov",
 ]
 
 [project.scripts]
