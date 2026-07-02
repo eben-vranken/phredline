@@ -3,6 +3,7 @@ import sys
 import math
 import array
 from collections.abc import Iterator
+
 CHUNK_SIZE = 16 * 1024
 
 
@@ -65,7 +66,9 @@ def read_lines(chunk_stream: Iterator[bytes]) -> Iterator[bytes]:
         yield tail
 
 
-def parse_records(line_stream: Iterator[bytes]) -> Iterator[tuple[bytes, bytes, bytes, bytes]]:
+def parse_records(
+    line_stream: Iterator[bytes],
+) -> Iterator[tuple[bytes, bytes, bytes, bytes]]:
     """Group FASTQ lines into validated four-line records and yield them as tuples.
 
     Each record is checked for the expected `@` header, `+` separator, and matching
@@ -93,15 +96,18 @@ def parse_records(line_stream: Iterator[bytes]) -> Iterator[tuple[bytes, bytes, 
     if record:
         raise ParseError("Truncated FASTQ record at end of file")
 
+
 def decode_phred(quality_string: bytes) -> array.array:
     out = array.array("b", bytes(len(quality_string)))
     decode_phred_into(quality_string, len(quality_string), out)
     return out
 
+
 def decode_phred_into(q_buffer, count: int, out_buffer: array.array) -> int:
     for i in range(count):
         out_buffer[i] = q_buffer[i] - 33
     return count
+
 
 def decode_error_probability(q_array) -> array.array:
     q_array = list(q_array)
@@ -109,10 +115,12 @@ def decode_error_probability(q_array) -> array.array:
     decode_error_probability_into(q_array, len(q_array), out)
     return out
 
+
 def decode_error_probability_into(q_buffer, count: int, out_buffer: array.array) -> int:
     for i in range(count):
         out_buffer[i] = 10 ** (-q_buffer[i] / 10)
     return count
+
 
 class ScratchBuffers:
     """Reusable, growable buffers for per-record Phred decoding.
@@ -121,6 +129,7 @@ class ScratchBuffers:
     slices into shared internal buffers. These are valid only until the NEXT call
     to decode(). Consume them before decoding the next record.
     """
+
     def __init__(self, initial_capacity: int = 300):
         self._q_scores = array.array("b", bytes(initial_capacity))
         self._error_probs = array.array("d", [0.0] * initial_capacity)
@@ -136,6 +145,7 @@ class ScratchBuffers:
         decode_phred_into(quality_string, n, self._q_scores)
         decode_error_probability_into(self._q_scores, n, self._error_probs)
         return memoryview(self._q_scores)[:n], memoryview(self._error_probs)[:n], n
+
 
 def compute_summary(aggregator):
     """Computes final stats from the Aggregator's state"""

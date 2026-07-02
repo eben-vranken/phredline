@@ -13,9 +13,7 @@ def test_passes_filters_helper():
     assert cli.passes_filters(b"ACGT", [40, 40, 40, 40], 30, 5, None) is False
 
 
-def test_main_writes_multiqc_section_files_in_output_directory(
-    tmp_path, monkeypatch
-):
+def test_main_writes_multiqc_section_files_in_output_directory(tmp_path, monkeypatch):
     input_path = tmp_path / "input.fastq"
     output_dir = tmp_path / "report"
     filtered_path = tmp_path / "filtered.fastq"
@@ -60,9 +58,7 @@ def test_main_writes_multiqc_section_files_in_output_directory(
     }
 
     summary_section = next(
-        section
-        for section in parsed_sections
-        if section["id"] == "fastq_summary"
+        section for section in parsed_sections if section["id"] == "fastq_summary"
     )
     assert summary_section["data"][input_path.stem]["total_reads"] == 2
 
@@ -77,7 +73,11 @@ def test_main_reports_unexpected_error(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(cli, "read_chunks", lambda *args, **kwargs: [b""])
     monkeypatch.setattr(cli, "read_lines", lambda chunks: [])
     monkeypatch.setattr(cli, "parse_records", lambda lines: iter([]))
-    monkeypatch.setattr(cli, "compute_summary", lambda aggregator: (_ for _ in ()).throw(RuntimeError("boom")))
+    monkeypatch.setattr(
+        cli,
+        "compute_summary",
+        lambda aggregator: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
 
     monkeypatch.setattr(
         sys,

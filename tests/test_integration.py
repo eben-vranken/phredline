@@ -8,7 +8,7 @@ def build_synthetic_fastq(record_count: int = 3000, read_length: int = 80) -> by
     qualities = b"I" * read_length
 
     for index in range(record_count):
-        sequence = ((b"ACGT" * (read_length // 4 + 1))[:read_length])
+        sequence = (b"ACGT" * (read_length // 4 + 1))[:read_length]
         if index % 3 == 1:
             sequence = sequence.replace(b"A", b"N", 1)
         elif index % 3 == 2:
@@ -53,7 +53,9 @@ def test_full_cli_pipeline_writes_valid_multiqc_section_files(tmp_path):
     }
 
     summary = next(section for section in sections if section["id"] == "fastq_summary")
-    quality = next(section for section in sections if section["id"] == "per_position_quality")
+    quality = next(
+        section for section in sections if section["id"] == "per_position_quality"
+    )
 
     assert summary["data"][input_path.stem]["total_reads"] == 3000
     assert "gc_ratio" in summary["data"][input_path.stem]

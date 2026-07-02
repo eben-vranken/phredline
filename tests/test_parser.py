@@ -21,13 +21,15 @@ DNA_BASES = [b"A", b"C", b"G", b"T", b"N"]
 
 
 def sequence_bytes_strategy(size: int):
-    return st.lists(st.sampled_from(DNA_BASES), min_size=size, max_size=size).map(b"".join)
+    return st.lists(st.sampled_from(DNA_BASES), min_size=size, max_size=size).map(
+        b"".join
+    )
 
 
 def quality_bytes_strategy(size: int):
-    return st.lists(st.integers(min_value=33, max_value=73), min_size=size, max_size=size).map(
-        bytes
-    )
+    return st.lists(
+        st.integers(min_value=33, max_value=73), min_size=size, max_size=size
+    ).map(bytes)
 
 
 def valid_fastq_records_strategy():
@@ -140,7 +142,9 @@ def test_read_chunks_from_stdin(monkeypatch):
         def __init__(self, data: bytes):
             self.buffer = DummyBuffer(data)
 
-    monkeypatch.setattr("phredline.parser.sys.stdin", DummyStdin(b"@r1\nACGT\n+\n!!!!\n"))
+    monkeypatch.setattr(
+        "phredline.parser.sys.stdin", DummyStdin(b"@r1\nACGT\n+\n!!!!\n")
+    )
 
     chunks = read_chunks("-", chunk_size=5)
     records = list(parse_records(read_lines(chunks)))
@@ -148,7 +152,12 @@ def test_read_chunks_from_stdin(monkeypatch):
 
 
 def test_read_lines_preserves_final_unterminated_chunk():
-    assert list(read_lines([b"@r1\nAC", b"GT\n+\n!!!!"])) == [b"@r1", b"ACGT", b"+", b"!!!!"]
+    assert list(read_lines([b"@r1\nAC", b"GT\n+\n!!!!"])) == [
+        b"@r1",
+        b"ACGT",
+        b"+",
+        b"!!!!",
+    ]
 
 
 def test_decode_phred_and_scratch_buffers():
@@ -227,7 +236,9 @@ def test_fastq_aggregator_add_record_matches_manual_counts():
     expected_second_mean_quality = -10 * math.log10((0.20 + 0.60) / 2)
 
     assert first_position["mean_quality"] == pytest.approx(expected_first_mean_quality)
-    assert second_position["mean_quality"] == pytest.approx(expected_second_mean_quality)
+    assert second_position["mean_quality"] == pytest.approx(
+        expected_second_mean_quality
+    )
 
 
 @given(valid_fastq_records_strategy())
@@ -245,7 +256,9 @@ def test_valid_fastq_parser_and_aggregator_preserve_counts(records):
         total_gc += sum(base in (ord("G"), ord("C")) for base in sequence)
         total_length += len(sequence)
 
-    parsed_records = list(parse_records(read_lines([b"\n".join(lines) + (b"\n" if lines else b"")])))
+    parsed_records = list(
+        parse_records(read_lines([b"\n".join(lines) + (b"\n" if lines else b"")]))
+    )
     assert parsed_records == expected_records
 
     max_read_len = max((len(sequence) for sequence, _ in records), default=0)
@@ -259,7 +272,10 @@ def test_valid_fastq_parser_and_aggregator_preserve_counts(records):
     assert aggregator.total_length == total_length
 
     for position in range(max_read_len):
-        assert sum(aggregator.base_counts[base][position] for base in "ATCGN") == aggregator.read_counts[position]
+        assert (
+            sum(aggregator.base_counts[base][position] for base in "ATCGN")
+            == aggregator.read_counts[position]
+        )
 
 
 @given(malformed_fastq_bytes_strategy())

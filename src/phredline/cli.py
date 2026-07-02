@@ -149,7 +149,9 @@ def main() -> None:
             filtered_handle.close()
 
 
-def format_for_multiqc(summary: dict[str, object], input_path: str) -> list[dict[str, object]]:
+def format_for_multiqc(
+    summary: dict[str, object], input_path: str
+) -> list[dict[str, object]]:
     """Convert summary statistics into the MultiQC section layout expected by the report.
 
     The output groups per-position quality values and aggregate sample metrics into the
