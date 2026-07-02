@@ -1,7 +1,7 @@
 import gzip
 import sys
 import math
-
+import array
 CHUNK_SIZE = 16 * 1024
 
 
@@ -75,14 +75,49 @@ def parse_records(line_stream):
     if record:
         raise ParseError("Truncated FASTQ record at end of file")
 
+def decode_phred(quality_string: bytes) -> array.array:
+    out = array.array("b", bytes(len(quality_string)))
+    decode_phred_into(quality_string, out)
+    return out
 
-def decode_phred(quality_string):
-    return [byte - 33 for byte in quality_string]
+def decode_phred_into(q_buffer, count: int, out_buffer: array.array) -> int:
+    for i in range(count):
+        out_buffer[i] = 10 ** (-q_buffer[i] / 10)
+    return count
 
+def decode_error_probability(q_array) -> array.array:
+    q_array = list(q_array)
+    out = array.array("d", [0.0] * len(q_array))
+    decode_error_probability_into(q_array, len(q_array), out)
+    return out
 
-def decode_error_probability(q_array):
-    return [10 ** (-q / 10) for q in q_array]
+def decode_error_probability_into(q_buffer, count: int, out_buffer: array.array) -> int:
+    for i in range(count):
+        out_buffer[i] = 10 ** (-q_buffer[i] / 10)
+    return count
 
+class ScratchBuffers:
+    """Reusable, growable buffers for per-record Phred decoding.
+
+    q_scores/error_probs returned by decode() are zero-copy memoryview
+    slices into shared internal buffers. These are valid only until the NEXT call
+    to decode(). Consume them before decoding the next record.
+    """
+    def __init__(self, initial_capacity: int = 300):
+        self._q_scores = array.array("b", bytes(initial_capacity))
+        self._error_probs = array.array("d", [0.0] * initial_capacity)
+
+    def _ensure_capacity(self, n: int) -> None:
+        if len(self._q_scores) < n:
+            self._q_scores = array.array("b", bytes(n))
+            self._error_probs = array.array("d", [0.0] * n)
+
+    def decode(self, quality_string: bytes):
+        n = len(quality_string)
+        self._ensure_capacity(n)
+        decode_phred_into(quality_string, self._q_scores)
+        decode_error_probability_into(self._q_scores, n, self._error_probs)
+        return memoryview(self._q_scores)[:n], memoryview(self._error_probs)[:n], n
 
 def compute_summary(aggregator):
     """Computes final stats from the Aggregator's state"""
